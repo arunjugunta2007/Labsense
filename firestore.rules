@@ -1,0 +1,152 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Default-Deny Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Hardened Global Primitive Helpers
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isBootstrappedAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'arunjugunta2007@gmail.com' ||
+        (request.auth.token.email_verified == true && request.auth.token.email == 'arunjugunta2007@gmail.com')
+      );
+    }
+
+    function isTeacherOrAdmin() {
+      return isSignedIn() && (
+        isBootstrappedAdmin() ||
+        (exists(/databases/$(database)/documents/profiles/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role in ['teacher', 'admin'])
+      );
+    }
+
+    function isValidProfile(data) {
+      return data.keys().hasAll(['id', 'full_name', 'role', 'email']) &&
+             data.id is string && isValidId(data.id) &&
+             data.full_name is string && data.full_name.size() > 0 && data.full_name.size() <= 100 &&
+             data.role in ['student', 'teacher', 'admin'] &&
+             data.email is string && data.email.size() <= 128;
+    }
+
+    function isValidComputer(data) {
+      return data.keys().hasAll(['id', 'lab_id', 'computer_number', 'status']) &&
+             data.id is string && isValidId(data.id) &&
+             data.lab_id is string && isValidId(data.lab_id) &&
+             data.computer_number is string && data.computer_number.size() <= 50 &&
+             data.status in ['available', 'in_use', 'maintenance', 'damaged', 'offline'];
+    }
+
+    function isValidSession(data) {
+      return data.keys().hasAll(['id', 'student_id', 'computer_id', 'lab_id', 'purpose', 'login_time', 'status']) &&
+             data.id is string && isValidId(data.id) &&
+             data.student_id is string && isValidId(data.student_id) &&
+             data.computer_id is string && isValidId(data.computer_id) &&
+             data.purpose is string && data.purpose.size() <= 250 &&
+             data.status in ['active', 'completed', 'terminated'];
+    }
+
+    function isValidIncident(data) {
+      return data.keys().hasAll(['id', 'computer_id', 'student_id', 'category', 'description', 'severity', 'status', 'reported_at']) &&
+             data.id is string && isValidId(data.id) &&
+             data.computer_id is string && isValidId(data.computer_id) &&
+             data.student_id is string && isValidId(data.student_id) &&
+             data.category is string && data.category.size() <= 50 &&
+             data.description is string && data.description.size() <= 1000 &&
+             data.severity in ['Low', 'Medium', 'High', 'Critical'] &&
+             data.status in ['Open', 'Investigating', 'In Progress', 'Resolved', 'Closed'];
+    }
+
+    // Profiles Collection
+    match /profiles/{profileId} {
+      allow get: if isSignedIn() && (request.auth.uid == profileId || isTeacherOrAdmin());
+      allow list: if isTeacherOrAdmin();
+      allow create: if isSignedIn() && request.auth.uid == profileId && isValidProfile(incoming()) && (
+        incoming().role == 'student' || isBootstrappedAdmin()
+      );
+      allow update: if isSignedIn() && (
+        isTeacherOrAdmin() ||
+        (request.auth.uid == profileId && incoming().diff(existing()).affectedKeys().hasOnly(['full_name']))
+      );
+      allow delete: if isBootstrappedAdmin();
+    }
+
+    // Students academic information
+    match /students/{studentDocId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && (
+        isTeacherOrAdmin() || (incoming().profile_id == request.auth.uid)
+      );
+      allow delete: if isTeacherOrAdmin();
+    }
+
+    // Labs collection
+    match /labs/{labId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isTeacherOrAdmin();
+    }
+
+    // Computers workstation inventory
+    match /computers/{computerId} {
+      allow read: if isSignedIn();
+      allow create, delete: if isTeacherOrAdmin();
+      allow update: if isTeacherOrAdmin() || (
+        isSignedIn() && isValidComputer(incoming()) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updated_at'])
+      );
+    }
+
+    // Lab Sessions
+    match /lab_sessions/{sessionId} {
+      allow get: if isSignedIn() && (resource.data.student_id == request.auth.uid || isTeacherOrAdmin());
+      allow list: if isSignedIn() && (resource.data.student_id == request.auth.uid || isTeacherOrAdmin());
+      allow create: if isSignedIn() && isValidSession(incoming()) && incoming().student_id == request.auth.uid;
+      allow update: if isSignedIn() && (
+        isTeacherOrAdmin() ||
+        (existing().student_id == request.auth.uid &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['logout_time', 'status']))
+      );
+      allow delete: if isTeacherOrAdmin();
+    }
+
+    // Incidents reports
+    match /incidents/{incidentId} {
+      allow get: if isSignedIn() && (resource.data.student_id == request.auth.uid || isTeacherOrAdmin());
+      allow list: if isSignedIn() && (resource.data.student_id == request.auth.uid || isTeacherOrAdmin());
+      allow create: if isSignedIn() && isValidIncident(incoming()) && incoming().student_id == request.auth.uid;
+      allow update: if isTeacherOrAdmin();
+      allow delete: if isTeacherOrAdmin();
+    }
+
+    // Incident status transition history
+    match /incident_history/{historyId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && incoming().changed_by == request.auth.uid;
+      allow update, delete: if false; // Append-only
+    }
+
+    // Audit Logs
+    match /audit_logs/{logId} {
+      allow read: if isTeacherOrAdmin();
+      allow create: if isSignedIn() && incoming().actor_id == request.auth.uid;
+      allow update, delete: if false; // Immutable audit log
+    }
+  }
+}

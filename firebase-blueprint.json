@@ -1,0 +1,160 @@
+{
+  "entities": {
+    "Profile": {
+      "title": "Profile",
+      "description": "User profile with role-based access information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "full_name": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "enum": ["student", "teacher", "admin"] },
+        "email": { "type": "string", "maxLength": 128 },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "full_name", "role", "email", "created_at"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Extended student academic and identification details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "profile_id": { "type": "string", "maxLength": 128 },
+        "student_id": { "type": "string", "maxLength": 50 },
+        "department": { "type": "string", "maxLength": 60 },
+        "year": { "type": "string", "maxLength": 20 },
+        "section": { "type": "string", "maxLength": 10 },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "profile_id", "student_id", "department", "year", "created_at"]
+    },
+    "Lab": {
+      "title": "Lab",
+      "description": "Institutional computer laboratory space",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "room_number": { "type": "string", "maxLength": 50 },
+        "description": { "type": "string", "maxLength": 255 },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "name", "room_number"]
+    },
+    "Computer": {
+      "title": "Computer",
+      "description": "Lab workstation hardware asset",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "lab_id": { "type": "string", "maxLength": 128 },
+        "computer_number": { "type": "string", "maxLength": 50 },
+        "asset_tag": { "type": "string", "maxLength": 80 },
+        "hostname": { "type": "string", "maxLength": 80 },
+        "status": { "type": "string", "enum": ["available", "in_use", "maintenance", "damaged", "offline"] },
+        "notes": { "type": "string", "maxLength": 500 },
+        "created_at": { "type": "string" },
+        "updated_at": { "type": "string" }
+      },
+      "required": ["id", "lab_id", "computer_number", "status"]
+    },
+    "LabSession": {
+      "title": "LabSession",
+      "description": "Recorded active or completed student workstation session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "student_id": { "type": "string", "maxLength": 128 },
+        "computer_id": { "type": "string", "maxLength": 128 },
+        "lab_id": { "type": "string", "maxLength": 128 },
+        "purpose": { "type": "string", "maxLength": 250 },
+        "login_time": { "type": "string" },
+        "logout_time": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "completed", "terminated"] },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "student_id", "computer_id", "lab_id", "purpose", "login_time", "status"]
+    },
+    "Incident": {
+      "title": "Incident",
+      "description": "Computer equipment malfunction or physical defect report",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "computer_id": { "type": "string", "maxLength": 128 },
+        "student_id": { "type": "string", "maxLength": 128 },
+        "session_id": { "type": "string", "maxLength": 128 },
+        "category": { "type": "string", "maxLength": 50 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "severity": { "type": "string", "enum": ["Low", "Medium", "High", "Critical"] },
+        "status": { "type": "string", "enum": ["Open", "Investigating", "In Progress", "Resolved", "Closed"] },
+        "reported_at": { "type": "string" },
+        "resolved_at": { "type": "string" }
+      },
+      "required": ["id", "computer_id", "student_id", "category", "description", "severity", "status", "reported_at"]
+    },
+    "IncidentHistory": {
+      "title": "IncidentHistory",
+      "description": "Audit trail log of status changes and investigation notes for an incident",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "incident_id": { "type": "string", "maxLength": 128 },
+        "changed_by": { "type": "string", "maxLength": 128 },
+        "previous_status": { "type": "string", "maxLength": 50 },
+        "new_status": { "type": "string", "maxLength": 50 },
+        "notes": { "type": "string", "maxLength": 500 },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "incident_id", "changed_by", "new_status", "created_at"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "System event audit trail record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "actor_id": { "type": "string", "maxLength": 128 },
+        "action": { "type": "string", "maxLength": 100 },
+        "entity_type": { "type": "string", "maxLength": 50 },
+        "entity_id": { "type": "string", "maxLength": 128 },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "actor_id", "action", "entity_type", "entity_id", "created_at"]
+    }
+  },
+  "firestore": {
+    "/profiles/{profileId}": {
+      "schema": "Profile",
+      "description": "Collection of user role profiles"
+    },
+    "/students/{studentDocId}": {
+      "schema": "Student",
+      "description": "Collection of student academic enrollment details"
+    },
+    "/labs/{labId}": {
+      "schema": "Lab",
+      "description": "Collection of computer laboratory rooms"
+    },
+    "/computers/{computerId}": {
+      "schema": "Computer",
+      "description": "Collection of computer hardware workstations"
+    },
+    "/lab_sessions/{sessionId}": {
+      "schema": "LabSession",
+      "description": "Active and completed lab workstation login sessions"
+    },
+    "/incidents/{incidentId}": {
+      "schema": "Incident",
+      "description": "Hardware and software incident problem reports"
+    },
+    "/incident_history/{historyId}": {
+      "schema": "IncidentHistory",
+      "description": "Audit trails for incident status transitions"
+    },
+    "/audit_logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "System administrative audit logs"
+    }
+  }
+}

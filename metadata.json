@@ -1,0 +1,6 @@
+{
+  "name": "LabSense — GIET Computer Lab Management System",
+  "description": "Comprehensive institutional lab management system with student and teacher portals, computer session monitoring, incident reporting, inventory management, and audit logs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
